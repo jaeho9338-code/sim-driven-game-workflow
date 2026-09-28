@@ -1,0 +1,12 @@
+{
+  "name": "sim-driven-game-workflow",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Portfolio write-up of a test-driven workflow for a single-file, inline-script browser game: a pre-guard/post-guard testability split, a headless verification harness, and an empirical long-horizon stress-test technique.",
+  "scripts": {
+    "build": "node build/build_from_template.js",
+    "test": "node testing/example_checks.js",
+    "verify": "npm run build && npm test"
+  }
+}

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Season Sim (workflow demo)</title>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ============================================================
+// PURE SIMULATION LOGIC -- everything above the __SIM__ guard below.
+// No reference to document/window/localStorage anywhere in this region.
+// Every function that needs "current time" or "randomness" takes it as an
+// explicit parameter instead of reaching for Date.now()/Math.random(), so a
+// test can pass in a seeded, reproducible substitute.
+// ============================================================
+
+// log5: combines two independent per-player tendencies plus a shared league
+// baseline into one head-to-head probability. Standard method for
+// attribute-driven matchup sims (real commercial baseball/basketball sims
+// use exactly this).
+function log5(a, b, league) {
+  const oddsA = a / (1 - a), oddsB = b / (1 - b), oddsL = league / (1 - league);
+  const combined = (oddsA * oddsB) / oddsL;
+  return combined / (1 + combined);
+}
+
+function simulateMatch(teamA, teamB, rng) {
+  const leagueAvg = 0.5;
+  const strengthA = teamA.players.reduce((s, p) => s + p.rating, 0) / teamA.players.length / 10;
+  const strengthB = teamB.players.reduce((s, p) => s + p.rating, 0) / teamB.players.length / 10;
+  const pAWins = log5(strengthA, 1 - strengthB, leagueAvg);
+  return rng() < pAWins ? { winner: teamA.id, loser: teamB.id } : { winner: teamB.id, loser: teamA.id };
+}
+
+// A generic "career milestone" rule -- deliberately modeled after a real
+// lesson from the source project: a rule triggered by crossing an exact age
+// threshold is easy to get right for players sitting in the MAIN roster
+// array, and easy to silently miss for a player who happens to be parked in
+// a SECONDARY array (a free-agent pool, a call-up queue, an injury list)
+// at the exact moment the threshold check runs. See
+// docs/changelog-convention.md for the real writeup of this exact bug class.
+const MILESTONE_AGE = 30;
+function rollMilestone(players, year) {
+  const reached = [];
+  players.forEach((p) => {
+    if (p.milestoneReached) return;
+    const age = year - p.birthYear;
+    if (age >= MILESTONE_AGE) {
+      p.milestoneReached = true;
+      reached.push(p.id);
+    }
+  });
+  return reached;
+}
+
+// The lesson encoded directly in code: ANY pool that can hold a player
+// outside the main roster for more than one cycle needs the SAME rule
+// applied to it, not just the main roster. A long-horizon stress test (see
+// testing/example_checks.js) is what actually catches the case where this
+// is forgotten for one of the pools.
+function rollMilestoneAcrossPools(mainRoster, reservePool, year) {
+  return rollMilestone(mainRoster, year).concat(rollMilestone(reservePool, year));
+}
+
+function advanceSeason(state, rng) {
+  const results = [];
+  for (let i = 0; i < state.teams.length; i += 2) {
+    if (i + 1 >= state.teams.length) break;
+    results.push(simulateMatch(state.teams[i], state.teams[i + 1], rng));
+  }
+  state.year += 1;
+  const allPlayers = state.teams.flatMap((t) => t.players);
+  const milestones = rollMilestoneAcrossPools(allPlayers, state.reservePool, state.year);
+  return { results, milestones };
+}
+
+if (globalThis.__SIM__) {
+  // The ENTIRE contract a test file is allowed to depend on. Nothing in
+  // testing/example_checks.js parses or pattern-matches this source file --
+  // it evals the built HTML and calls these like a normal library.
+  globalThis.__sim = {
+    log5,
+    simulateMatch,
+    rollMilestone,
+    rollMilestoneAcrossPools,
+    advanceSeason,
+    MILESTONE_AGE,
+    SNAPSHOT: globalThis.__SIM_SNAPSHOT__,
+  };
+}
+
+if (!globalThis.__SIM__) {
+  // ============================================================
+  // Everything below this line is free to touch document/window/
+  // localStorage. A function that needs to be unit-tested does NOT belong
+  // here -- if it's here, the test harness can't see it.
+  // ============================================================
+  const SNAPSHOT = __DATA_SNAPSHOT_JSON__;
+  const state = { year: SNAPSHOT.year, teams: SNAPSHOT.teams, reservePool: SNAPSHOT.reservePool };
+
+  function render() {
+    const app = document.getElementById('app');
+    app.innerHTML = '<h1>Season Sim -- ' + state.year + '</h1>' +
+      '<button id="advanceBtn">Advance season</button>' +
+      '<pre id="log"></pre>';
+    document.getElementById('advanceBtn').addEventListener('click', () => {
+      const rng = Math.random;
+      const { results, milestones } = advanceSeason(state, rng);
+      document.getElementById('log').textContent =
+        'Year ' + state.year + '\n' +
+        results.map((r) => r.winner + ' beat ' + r.loser).join('\n') +
+        (milestones.length ? '\nMilestones reached: ' + milestones.join(', ') : '');
+    });
+  }
+  render();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "year": 2026,
+  "teams": [
+    { "id": "Falcons", "players": [
+      { "id": "f1", "rating": 7, "birthYear": 1998 },
+      { "id": "f2", "rating": 6, "birthYear": 2001 }
+    ] },
+    { "id": "Bears", "players": [
+      { "id": "b1", "rating": 5, "birthYear": 1994 },
+      { "id": "b2", "rating": 8, "birthYear": 2000 }
+    ] },
+    { "id": "Wolves", "players": [
+      { "id": "w1", "rating": 6, "birthYear": 1997 },
+      { "id": "w2", "rating": 6, "birthYear": 1999 }
+    ] },
+    { "id": "Otters", "players": [
+      { "id": "o1", "rating": 4, "birthYear": 1993 },
+      { "id": "o2", "rating": 7, "birthYear": 2002 }
+    ] }
+  ],
+  "reservePool": [
+    { "id": "r1", "rating": 5, "birthYear": 1995 }
+  ]
+}
